@@ -11,9 +11,10 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "hashicorp.terraform",
+        "amazonwebservices.amazon-q-vscode",
         "amazonwebservices.aws-toolkit-vscode",
         "github.vscode-github-actions",
+        "hashicorp.terraform",
         "ms-azuretools.vscode-docker"
       ],
       "settings": {
