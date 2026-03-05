@@ -1,0 +1,78 @@
+region = "ca-central-1"
+
+default_tags = {
+  managed_by = "terraform"
+  workload   = "platform"
+}
+
+organizational_units = {
+  security = {
+    name = "Security"
+  }
+
+  shared = {
+    name = "SharedServices"
+  }
+
+  prod = {
+    name = "Production"
+  }
+
+  nonprod = {
+    name = "NonProduction"
+  }
+
+  sandbox = {
+    name          = "Sandbox"
+    parent_ou_key = "nonprod"
+  }
+}
+
+accounts = {
+  log_archive = {
+    email         = "aws-log-archive@example.com"
+    name          = "LogArchive"
+    parent_ou_key = "security"
+    tags = {
+      environment = "security"
+    }
+  }
+
+  audit = {
+    email         = "aws-audit@example.com"
+    name          = "Audit"
+    parent_ou_key = "security"
+  }
+
+  shared_services = {
+    email         = "aws-shared@example.com"
+    name          = "SharedServices"
+    parent_ou_key = "shared"
+  }
+}
+
+scp_policies = {
+  deny_leave_org = {
+    description = "Prevent member accounts from leaving the organization"
+    content = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid      = "DenyLeaveOrganization"
+          Effect   = "Deny"
+          Action   = "organizations:LeaveOrganization"
+          Resource = "*"
+        }
+      ]
+    })
+  }
+}
+
+policy_attachments = {
+  deny_leave_org_to_root = {
+    policy_key  = "deny_leave_org"
+    target_type = "ROOT"
+  }
+}
+
+delegated_administrators = {}
