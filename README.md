@@ -2,15 +2,44 @@
 
 Complete AWS multi-account infrastructure using Control Tower, Organizations, and Account Factory for Terraform (AFT).
 
+## Prerequisites
+
+**NEW TO AWS?** Start here: [Complete Prerequisites Guide](docs/PREREQUISITES.md)
+
+This guide covers the 4 things you MUST do manually:
+- Creating an AWS account
+- Creating an IAM user with credentials
+- Installing Terraform and AWS CLI locally
+- Configuring AWS CLI with your credentials
+
+**Everything else is automated by Terraform!** Including:
+- ✨ AWS Organizations creation
+- ✨ AWS Control Tower deployment
+- ✨ Account creation, OUs, SCPs, IAM Identity Center, AFT, and more
+
+---
+
 ## Quick Start
 
-### 1. Copy Configuration
+### 1. Complete Prerequisites
+
+See [Complete Prerequisites Guide](docs/PREREQUISITES.md) for detailed step-by-step instructions.
+
+Required:
+- ✅ AWS account created
+- ✅ IAM `terraform-user` created with Access Keys
+- ✅ AWS CLI installed and credentials configured (`aws configure`)
+- ✅ Terraform installed (v1.0+)
+
+**Note:** AWS Organizations and Control Tower will be deployed automatically by Terraform - no manual setup needed!
+
+### 2. Copy Configuration
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-### 2. Customize Organization
+### 3. Customize Organization
 
 Edit `terraform.tfvars`:
 - **Organizational Units** - OU structure (Security, Infrastructure, Workloads, etc.)
@@ -19,37 +48,38 @@ Edit `terraform.tfvars`:
 - **IAM Identity Center** - Permission sets (prod-admin, dev-engineer, platform-admin, security-audit)
 - **Delegated Administrators** - Which accounts can manage org services (AFT, CloudTrail, Config, GuardDuty, etc.)
 
-### 3. Ensure Prerequisites
-
-Before deploying:
-- AWS Organizations must be enabled (Terraform cannot create it without manual setup)
-- AWS Control Tower must be manually enabled in AWS Console (takes 20-30 minutes)
-- AWS credentials configured for management account
-
 ### 4. Deploy
 
 ```bash
 ./scripts/deploy.sh --auto-approve
 ```
 
-**Time:** ~45-60 minutes total (control tower setup is automatic via Terraform)
+or manually:
+
+```bash
+cd terraform
+terraform init
+terraform apply -var-file=../terraform.tfvars
+```
+
+**Time:** ~45-60 minutes total (includes automated Control Tower deployment)
 
 ---
 
 ## What Gets Created
 
-| Component | Status | Prerequisite |
-|-----------|--------|---------------|
-| Terraform state backend (S3 + DynamoDB) | ✅ Automatic | None |
-| AWS Organization | 📋 Manual then Terraform | Enable in AWS Console first |
-| Control Tower landing zone | 📋 Manual then Terraform | Enable in AWS Console first |
-| Organizational Units (OUs) | ✅ From terraform.tfvars | Control Tower enabled |
-| AWS Accounts | ✅ From terraform.tfvars | Control Tower enabled |
-| Service Control Policies | ✅ From terraform.tfvars | Control Tower enabled |
-| IAM Identity Center | ✅ From terraform.tfvars | Control Tower auto-enables it |
-| Account Factory for Terraform (AFT) | ✅ From terraform.tfvars | Control Tower enabled |
-| CloudTrail | ✅ From terraform.tfvars | Can be disabled via config |
-| AWS Config | ✅ From terraform.tfvars | Can be disabled via config |
+| Component | Automated? | Notes |
+|-----------|---------|-------|
+| Terraform state backend (S3 + DynamoDB) | ✅ Yes | Created in bootstrap phase |
+| AWS Organization | ✅ Yes | Terraform creates it automatically |
+| Control Tower landing zone | ✅ Yes | Automated via aws_controltower_landing_zone |
+| Organizational Units (OUs) | ✅ Yes | Defined in terraform.tfvars |
+| AWS Accounts (Audit, LogArchive, etc.) | ✅ Yes | Defined in terraform.tfvars |
+| Service Control Policies (SCPs) | ✅ Yes | Defined in terraform.tfvars |
+| IAM Identity Center | ✅ Yes | Auto-enabled by Control Tower, configured via Terraform |
+| Account Factory for Terraform (AFT) | ✅ Yes | Deployed by Terraform |
+| CloudTrail | ✅ Yes | Can be disabled via config |
+| AWS Config | ✅ Yes | Can be disabled via config |
 
 ---
 
@@ -254,15 +284,36 @@ docs/
 
 ## Troubleshooting
 
-### Control Tower deployment takes too long
+### Terraform apply takes a long time
 
-This is normal - landing zone deployment typically takes 30-45 minutes. Monitor progress in AWS Console > AWS Control Tower.
+This is normal - Control Tower landing zone deployment typically takes 30-45 minutes. Monitor progress:
+
+```bash
+# In another terminal, watch for landing zone events
+aws events list-rules --region ca-central-1 | grep -i landing
+
+# Or check AWS Control Tower status in console
+```
+
+### "InvalidOperationException" when creating organization
+
+Control Tower or Organizations already exists. Check:
+```bash
+aws organizations describe-organization
+```
+
+If it already exists, you can:
+1. Remove the `aws_organizations_organization` resource from terraform config, or
+2. Use `terraform import` to import the existing organization
 
 ### Permission errors
 
-Ensure your AWS credentials have sufficient permissions:
-- IAM, Organizations, Control Tower
-- S3, DynamoDB, SSO
+Ensure your `terraform-user` has `AdministratorAccess` policy:
+```bash
+aws iam list-attached-user-policies --user-name terraform-user
+```
+
+If not attached, go to IAM Console and add it.
 
 ### State file corruption
 
@@ -270,7 +321,7 @@ Ensure your AWS credentials have sufficient permissions:
 cd terraform
 rm -rf .terraform terraform.tfstate*
 terraform init
-terraform apply -var-file=terraform.tfvars
+terraform apply -var-file=../terraform.tfvars
 ```
 
 ---
