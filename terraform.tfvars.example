@@ -1,0 +1,189 @@
+# Global Terraform Variables - Shared Across All Modules
+# =========================================================
+# Copy this file to terraform.tfvars and customize for your environment.
+# This is the SINGLE SOURCE OF TRUTH for all stack configuration.
+#
+# All modules (bootstrap, control-tower, org, aft) read from this file.
+# Do NOT edit terraform.tfvars in subdirectories.
+
+region = "ca-central-1"
+
+# Set to true only for a brand-new management account with no organization yet.
+create_organization = false
+
+default_tags = {
+  managed_by = "terraform"
+  workload   = "platform"
+}
+
+# Account emails are auto-generated as aws+<account>@<domain> when per-account email is not set.
+account_email_domain = "example.com"
+
+# =========================================================
+# ORGANIZATIONAL UNITS (OUs)
+# =========================================================
+organizational_units = {
+  security = {
+    name = "Security"
+  }
+
+  infra = {
+    name = "Infrastructure"
+  }
+
+  workload = {
+    name = "Workloads"
+  }
+
+  prod = {
+    name          = "Production"
+    parent_ou_key = "workload"
+  }
+
+  nonprod = {
+    name          = "Non-Production"
+    parent_ou_key = "workload"
+  }
+
+  sandbox = {
+    name          = "Sandbox"
+    parent_ou_key = "nonprod"
+  }
+}
+
+# =========================================================
+# AWS ACCOUNTS
+# =========================================================
+accounts = {
+  log_archive = {
+    email_local_part = "log-archive"
+    name             = "LogArchive"
+    parent_ou_key    = "security"
+    tags = {
+      environment = "security"
+      purpose     = "logging"
+    }
+  }
+
+  audit = {
+    email_local_part = "audit"
+    name             = "Audit"
+    parent_ou_key    = "security"
+    tags = {
+      environment = "security"
+      purpose     = "compliance"
+    }
+  }
+
+  shared_services = {
+    email_local_part = "shared-services"
+    name             = "SharedServices"
+    parent_ou_key    = "infra"
+    tags = {
+      environment = "infrastructure"
+      purpose     = "platform"
+    }
+  }
+
+  network = {
+    email_local_part = "network"
+    name             = "Network"
+    parent_ou_key    = "infra"
+    tags = {
+      environment = "infrastructure"
+      purpose     = "networking"
+    }
+  }
+
+  aft_tooling = {
+    email_local_part = "aft-tooling"
+    name             = "AFT-Tooling"
+    parent_ou_key    = "infra"
+    tags = {
+      environment = "infrastructure"
+      purpose     = "aft-management"
+    }
+  }
+}
+
+# =========================================================
+# SERVICE CONTROL POLICIES (SCPs)
+# =========================================================
+scp_policies = {
+  deny_leave_org = {
+    description = "Prevent member accounts from leaving the organization"
+    content     = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"DenyLeaveOrganization\",\"Effect\":\"Deny\",\"Action\":\"organizations:LeaveOrganization\",\"Resource\":\"*\"}]}"
+  }
+
+  deny_delete_account = {
+    description = "Prevent accidental account deletion"
+    content     = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"DenyCloseAccount\",\"Effect\":\"Deny\",\"Action\":\"organizations:CloseAccount\",\"Resource\":\"*\"}]}"
+  }
+
+  require_mfa = {
+    description = "Require MFA for console and CLI access"
+    content     = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"DenyAllExceptListedIfNoMFA\",\"Effect\":\"Deny\",\"NotAction\":[\"iam:CreateVirtualMFADevice\",\"iam:EnableMFADevice\",\"iam:GetUser\",\"iam:ListMFADevices\",\"iam:ListUsers\",\"iam:ListVirtualMFADevices\",\"iam:ResyncMFADevice\",\"sts:GetSessionToken\"],\"Resource\":\"*\",\"Condition\":{\"BoolIfExists\":{\"aws:MultiFactorAuthPresent\":\"false\"}}}]}"
+  }
+
+  deny_privileged_regions = {
+    description = "Restrict privileged operations to specific regions"
+    content     = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"DenyIAMOutsideAllowedRegion\",\"Effect\":\"Deny\",\"Action\":[\"iam:*\",\"organizations:*\"],\"Resource\":\"*\",\"Condition\":{\"StringNotEquals\":{\"aws:RequestedRegion\":[\"ca-central-1\",\"us-east-1\"]}}}]}"
+  }
+}
+
+# =========================================================
+# POLICY ATTACHMENTS
+# =========================================================
+policy_attachments = {
+  deny_leave_org_to_root = {
+    policy_key  = "deny_leave_org"
+    target_type = "ROOT"
+  }
+
+  deny_delete_account_to_root = {
+    policy_key  = "deny_delete_account"
+    target_type = "ROOT"
+  }
+
+  require_mfa_to_nonprod = {
+    policy_key  = "require_mfa"
+    target_type = "OU"
+    target_key  = "nonprod"
+  }
+
+  deny_privileged_regions_to_prod = {
+    policy_key  = "deny_privileged_regions"
+    target_type = "OU"
+    target_key  = "prod"
+  }
+}
+
+# =========================================================
+# DELEGATED ADMINISTRATORS
+# =========================================================
+delegated_administrators = {
+  aft_service = {
+    account_key       = "aft_tooling"
+    service_principal = "aft.amazonaws.com"
+  }
+
+  controltower_service = {
+    account_key       = "log_archive"
+    service_principal = "controltower.amazonaws.com"
+  }
+
+  cloudtrail_service = {
+    account_key       = "log_archive"
+    service_principal = "cloudtrail.amazonaws.com"
+  }
+
+  config_service = {
+    account_key       = "audit"
+    service_principal = "config.amazonaws.com"
+  }
+
+  guardduty_service = {
+    account_key       = "audit"
+    service_principal = "guardduty.amazonaws.com"
+  }
+}

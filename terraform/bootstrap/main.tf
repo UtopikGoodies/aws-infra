@@ -8,8 +8,16 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+locals {
+  bucket_name = var.state_bucket_name != "" ? var.state_bucket_name : "tf-state-${data.aws_caller_identity.current.account_id}-${random_id.bucket_suffix.hex}"
+}
+
 resource "aws_s3_bucket" "tf_state" {
-  bucket = var.state_bucket_name
+  bucket = local.bucket_name
 }
 
 resource "aws_s3_bucket_versioning" "tf_state" {
@@ -48,16 +56,4 @@ resource "aws_dynamodb_table" "tf_lock" {
     name = "LockID"
     type = "S"
   }
-}
-
-output "state_bucket_name" {
-  value = aws_s3_bucket.tf_state.id
-}
-
-output "lock_table_name" {
-  value = aws_dynamodb_table.tf_lock.name
-}
-
-output "management_account_id" {
-  value = data.aws_caller_identity.current.account_id
 }

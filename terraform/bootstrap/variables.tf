@@ -1,12 +1,13 @@
 variable "region" {
   description = "AWS region for backend resources"
   type        = string
-  default     = "eu-west-1"
+  default     = "ca-central-1"
 }
 
 variable "state_bucket_name" {
-  description = "Globally unique S3 bucket name for Terraform state"
+  description = "Globally unique S3 bucket name for Terraform state. If empty, auto-generated from AWS account ID and random suffix."
   type        = string
+  default     = ""
 }
 
 variable "lock_table_name" {

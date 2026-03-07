@@ -1,140 +1,278 @@
-# aws-infra
+# AWS Infrastructure - Terraform
 
-Control Tower + AFT first baseline for AWS multi-account governance with Infrastructure as Code.
+Complete AWS multi-account infrastructure using Control Tower, Organizations, and Account Factory for Terraform (AFT).
 
-## Operating model (recommended)
+## Quick Start
 
-- **Control Tower** manages landing zone and governance baseline.
-- **AFT** manages account lifecycle through Git-driven workflows.
-- This repository stores account request templates and shared IaC conventions.
-
-See [docs/control-tower-aft.md](docs/control-tower-aft.md).
-
-## Prerequisites
-
-- Terraform >= 1.6
-- AWS credentials with permissions in the management account
-- Existing AWS Organization already created
-- AWS Control Tower enabled (recommended)
-
-## Dev Container
-
-This repository includes a VS Code Dev Container at `.devcontainer/devcontainer.json`.
-
-### Start it
-
-1. Open this repository in VS Code.
-2. Run: `Dev Containers: Reopen in Container`.
-3. Wait for build completion.
-
-The container includes Terraform, AWS CLI, GitHub CLI, and recommended extensions.
-
-### AWS credentials inside container
-
-The devcontainer mounts your host `~/.aws` folder to `/home/vscode/.aws`, so your existing profiles can be used directly:
+### 1. Copy Configuration
 
 ```bash
-aws sts get-caller-identity --profile <your-profile>
-```
-
-## How to use this repository
-
-Start here:
-
-1. **New to this repo?** Read [Organization Structure](docs/organization-structure.md) to understand the target setup.
-2. **Setting up AWS Control Tower + AFT?** See [Control Tower & AFT](docs/control-tower-aft.md).
-3. **Creating workload repositories?** Follow [Workload Repository Strategy](docs/workload-repo-strategy.md).
-4. **Using GitHub Codespaces?** See [Codespaces Dotfiles Setup](docs/codespaces-dotfiles.md) to configure your environment.
-
-## Repository structure
-
-- `terraform/bootstrap` — one-time state backend provisioning (S3 + DynamoDB)
-- `terraform/aft` — account request templates and AFT scaffolding
-- `terraform/org` — legacy org-management stack (migration/compatibility only)
-- `docs/` — architecture guides and setup instructions (see "How to use this repository" above)
-
-## Recommended path (Control Tower + AFT)
-
-1. Enable and configure AWS Control Tower in management account.
-2. Deploy AFT (Account Factory for Terraform) in your platform tooling account.
-3. Use `terraform/aft/account-requests` to define new account requests.
-4. Implement account baseline customizations through AFT customization pipelines.
-
-## AFT account request quick start
-
-```bash
-cd terraform/aft/account-requests
-mkdir nonprod-shared-services
-cp template/request.auto.tfvars.json nonprod-shared-services/request.auto.tfvars.json
-```
-
-Edit values (name, email, OU, owner fields), then submit via your AFT request pipeline.
-
-## Legacy stack (use only if not on Control Tower yet)
-
-If you are not on Control Tower yet, the legacy Terraform org stack is still available.
-
-### 1) Bootstrap Terraform remote state
-
-From the repository root:
-
-```bash
-cd terraform/bootstrap
-terraform init
-terraform apply \
-	-var="state_bucket_name=<globally-unique-bucket-name>" \
-	-var="lock_table_name=terraform-state-locks"
-```
-
-Save outputs for next step:
-
-- `state_bucket_name`
-- `lock_table_name`
-
-### 2) Configure organization model
-
-```bash
-cd ../org
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars` and set:
+### 2. Customize Organization
 
-- OU structure in `organizational_units`
-- Accounts in `accounts` (unique emails)
-- SCPs in `scp_policies`
-- Attachments in `policy_attachments`
-- Optional delegated admins in `delegated_administrators`
+Edit `terraform.tfvars`:
+- **Organizational Units** - OU structure (Security, Infrastructure, Workloads, etc.)
+- **AWS Accounts** - Member accounts to create (Audit, LogArchive, SharedServices, Network, AFT-Tooling, etc.)
+- **Service Control Policies** - Organization policies (prevent leaving org, require MFA, etc.)
+- **IAM Identity Center** - Permission sets (prod-admin, dev-engineer, platform-admin, security-audit)
+- **Delegated Administrators** - Which accounts can manage org services (AFT, CloudTrail, Config, GuardDuty, etc.)
 
-### 3) Initialize org stack with backend config
+### 3. Ensure Prerequisites
 
-```bash
-terraform init \
-	-backend-config="bucket=<state_bucket_name>" \
-	-backend-config="key=org/terraform.tfstate" \
-	-backend-config="region=<region>" \
-	-backend-config="dynamodb_table=<lock_table_name>"
-```
+Before deploying:
+- AWS Organizations must be enabled (Terraform cannot create it without manual setup)
+- AWS Control Tower must be manually enabled in AWS Console (takes 20-30 minutes)
+- AWS credentials configured for management account
 
-### 4) Plan and apply
+### 4. Deploy
 
 ```bash
-terraform plan
-terraform apply
+./scripts/deploy.sh --auto-approve
 ```
 
-## Notes and guardrails
+**Time:** ~45-60 minutes total (control tower setup is automatic via Terraform)
 
+---
 
-- Legacy `terraform/org` stack assumes organization root already exists and reads it as data.
-- Legacy OU creation currently supports up to 2 levels:
-	- Root -> OU
-	- Root -> OU -> OU
-- Account creation in AWS Organizations can take several minutes.
-- Be careful with SCP rollouts; start with non-production OUs first.
+## What Gets Created
 
-## Suggested next improvements
+| Component | Status | Prerequisite |
+|-----------|--------|---------------|
+| Terraform state backend (S3 + DynamoDB) | ✅ Automatic | None |
+| AWS Organization | 📋 Manual then Terraform | Enable in AWS Console first |
+| Control Tower landing zone | 📋 Manual then Terraform | Enable in AWS Console first |
+| Organizational Units (OUs) | ✅ From terraform.tfvars | Control Tower enabled |
+| AWS Accounts | ✅ From terraform.tfvars | Control Tower enabled |
+| Service Control Policies | ✅ From terraform.tfvars | Control Tower enabled |
+| IAM Identity Center | ✅ From terraform.tfvars | Control Tower auto-enables it |
+| Account Factory for Terraform (AFT) | ✅ From terraform.tfvars | Control Tower enabled |
+| CloudTrail | ✅ From terraform.tfvars | Can be disabled via config |
+| AWS Config | ✅ From terraform.tfvars | Can be disabled via config |
 
-- Add CI checks (`terraform fmt -check`, `terraform validate`, `terraform plan`)
-- Split reusable logic into Terraform modules
-- Add account-level baseline stacks (IAM, CloudTrail, Config, Security Hub)
+---
+
+## Deployment Sequence
+
+Automatically ordered (no manual sequencing needed):
+
+```
+1. Bootstrap      → S3 + DynamoDB state backend
+2. Control Tower  → Organization + landing zone
+3. Organization   → OUs + accounts + policies + IAM IC
+4. AFT            → Account provisioning pipeline
+```
+
+---
+
+## Configuration
+
+### terraform.tfvars (Root Level)
+
+This is the **single source of truth** for all stack configuration. All modules (bootstrap, control-tower, org, aft) read from this file.
+
+Edit the file copied from `terraform.tfvars.example`:
+
+```hcl
+# Primary region for all resources
+region = "ca-central-1"
+
+# Email domain for auto-generated account emails
+account_email_domain = "your-domain.com"
+
+# Define your organization structure
+organizational_units = {
+  security = {
+    name          = "Security"
+    parent_ou_key = null  # Root level
+  }
+  infrastructure = {
+    name          = "Infrastructure"
+    parent_ou_key = null
+  }
+  workload = {
+    name          = "Workloads"
+    parent_ou_key = null
+  }
+  prod = {
+    name          = "Production"
+    parent_ou_key = "workload"  # Nested under Workloads
+  }
+}
+
+# Define member accounts to create
+accounts = {
+  log_archive = {
+    email_local_part = "log-archive"
+    name             = "LogArchive"
+    parent_ou_key    = "security"
+  }
+  shared_services = {
+    email_local_part = "shared-services"
+    name             = "SharedServices"
+    parent_ou_key    = "infrastructure"
+  }
+}
+
+# Define Service Control Policies
+scp_policies = {
+  deny_leave_org = {
+    description = "Prevent accounts from leaving the organization"
+    content     = "{...json policy...}"
+  }
+}
+
+# Attach policies to OUs or root
+policy_attachments = {
+  deny_leave_to_root = {
+    policy_key  = "deny_leave_org"
+    target_type = "ROOT"
+  }
+}
+
+# Delegate service management to specific accounts
+delegated_administrators = {
+  aft_service = {
+    account_key       = "aft_tooling"
+    service_principal = "aft.amazonaws.com"
+  }
+}
+```
+
+### Environment Variables (Optional)
+
+You can optionally set these in your shell or `.env` file:
+
+```bash
+AWS_PROFILE=management      # AWS CLI profile to use
+AWS_REGION=ca-central-1    # Default region
+```
+
+---
+
+## Deployment Modes
+
+### Full Deployment (Recommended)
+
+```bash
+./scripts/deploy.sh --auto-approve
+```
+
+### Preview Only
+
+```bash
+./scripts/deploy.sh --plan-only
+```
+
+### Interactive
+
+```bash
+./scripts/deploy.sh
+```
+
+---
+
+## Post-Deployment
+
+After deployment completes:
+
+1. **Review AWS account** for deployed resources
+2. **Configure IAM Identity Center** - Manually add users and groups
+3. **Create account requests** using Account Factory for Terraform
+
+See [docs/control-tower-aft.md](docs/control-tower-aft.md) for operating model details.
+
+---
+
+## Prerequisites
+
+- Terraform >= 1.0
+- AWS CLI configured
+- New AWS management account (no existing organization)
+- Permissions for Control Tower deployment
+
+---
+
+## Repository Structure
+
+```
+terraform/
+├── terraform.tfvars      # Your organization configuration
+├── main.tf               # Root module orchestration
+├── variables.tf          # Input variables
+├── versions.tf           # Provider versions
+├── bootstrap/            # State backend (S3 + DynamoDB)
+├── control-tower/        # Landing zone and organization
+├── org/                  # OUs, accounts, policies, IAM IC
+└── aft/                  # Account Factory
+
+.env                       # Environment (git-ignored)
+scripts/
+└── deploy.sh        # Deployment script
+
+docs/
+├── control-tower-aft.md  # Operating model
+├── organization-structure.md  # OU reference
+├── workload-repo-strategy.md  # Account provisioning
+└── codespaces-dotfiles.md    # Dev container setup
+```
+
+---
+
+## Modules
+
+**bootstrap/** - Terraform state management
+- S3 bucket for state
+- DynamoDB locking table
+
+**control-tower/** - AWS landing zone
+- Creates organization
+- Deploys landing zone
+- Enables IAM Identity Center
+
+**org/** - Organization structure
+- Organizational Units
+- AWS Accounts
+- Service Control Policies
+- IAM Identity Center permission sets
+
+**aft/** - Account Factory for Terraform
+- Account request management
+- Automated provisioning workflow
+
+---
+
+## Documentation
+
+- [Operating Model](docs/control-tower-aft.md)
+- [Organization Design](docs/organization-structure.md)
+- [Workload Repositories](docs/workload-repo-strategy.md)
+- [Dev Container Setup](docs/codespaces-dotfiles.md)
+
+---
+
+## Troubleshooting
+
+### Control Tower deployment takes too long
+
+This is normal - landing zone deployment typically takes 30-45 minutes. Monitor progress in AWS Console > AWS Control Tower.
+
+### Permission errors
+
+Ensure your AWS credentials have sufficient permissions:
+- IAM, Organizations, Control Tower
+- S3, DynamoDB, SSO
+
+### State file corruption
+
+```bash
+cd terraform
+rm -rf .terraform terraform.tfstate*
+terraform init
+terraform apply -var-file=terraform.tfvars
+```
+
+---
+
+See `docs/` for additional documentation.

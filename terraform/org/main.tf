@@ -1,7 +1,23 @@
-data "aws_organizations_organization" "current" {}
+data "aws_organizations_organization" "current" {
+  count = var.create_organization ? 0 : 1
+}
+
+resource "aws_organizations_organization" "this" {
+  count = var.create_organization ? 1 : 0
+
+  feature_set                   = var.organization_feature_set
+  aws_service_access_principals = var.organization_service_access_principals
+  enabled_policy_types          = var.organization_enabled_policy_types
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
 
 locals {
-  root_id = data.aws_organizations_organization.current.roots[0].id
+  organization    = var.create_organization ? aws_organizations_organization.this[0] : data.aws_organizations_organization.current[0]
+  root_id         = local.organization.roots[0].id
+  organization_id = local.organization.id
 
   root_level_ous = {
     for key, ou in var.organizational_units :
@@ -40,7 +56,7 @@ locals {
 resource "aws_organizations_account" "accounts" {
   for_each = var.accounts
 
-  email                      = each.value.email
+  email                      = coalesce(try(each.value.email, null), format("aws+%s@%s", try(each.value.email_local_part, replace(each.key, "_", "-")), var.account_email_domain))
   name                       = each.value.name
   parent_id                  = try(local.all_ou_ids[each.value.parent_ou_key], local.root_id)
   role_name                  = each.value.role_name

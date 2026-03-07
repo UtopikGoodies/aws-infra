@@ -1,66 +1,40 @@
-# Codespaces Dotfiles Setup
+# GitHub Codespaces Setup
 
-## Using `.sso-config` with GitHub Codespaces
+## AWS Credentials in Codespaces
 
-GitHub Codespaces supports [dotfiles repositories](https://docs.github.com/en/codespaces/customizing-your-codespace/personalizing-codespaces-with-dotfiles) to automatically configure environments.
+To use AWS credentials in GitHub Codespaces, configure AWS credentials via environment variables or AWS profile in your `.devcontainer/devcontainer.json`.
 
-### Quick Setup
+### Option 1: AWS Profile (Recommended)
 
-1. **Create a dotfiles repo** (or add to existing one):
+1. **Mount AWS credentials** into the container:
+   ```json
+   {
+     "mounts": [
+       "source=${localEnv:HOME}/.aws,target=/root/.aws,type=bind,readonly"
+     ]
+   }
    ```
-   your-org/dotfiles/
-   └── .sso-config
-   ```
 
-2. **Copy the template**:
+2. **Set AWS_PROFILE** environment variable in your shell:
    ```bash
-   cp .sso-config.example .sso-config
+   export AWS_PROFILE=management
+   aws sts get-caller-identity  # Verify credentials
    ```
 
-3. **Edit `.sso-config`** with your Identity Center details:
-   ```bash
-   SSO_START_URL="https://my-sso-xxx.awsapps.com/start"
-   SSO_REGION="us-east-1"
-   SSO_PROFILES="dev,prod"
-   
-   DEV_ACCOUNT_ID="123456789012"
-   DEV_ROLE_NAME="dev-engineer"
-   
-   PROD_ACCOUNT_ID="234567890123"
-   PROD_ROLE_NAME="prod-admin"
-   ```
+### Option 2: Federated Identity (GitHub OIDC)
 
-4. **Add to your Codespaces settings**:
-   - Go to https://github.com/settings/codespaces
-   - Under **Dotfiles**, set:
-     - Repository: `your-org/dotfiles`
-     - Branch: `main`
-     - Devcontainer path: empty (unless you customize it)
+For CI/CD workflows, use GitHub OIDC to assume AWS roles without long-lived credentials:
 
-5. **Next time you create a Codespace**:
-   - Codespaces clones your dotfiles repo to `~/.dotfiles`
-   - Your dotfile setup script runs automatically
-   - When `scripts/setup-aws-sso.sh` is called during devcontainer init, it reads `~/.sso-config` and auto-configures profiles
+```bash
+aws sts assume-role-with-web-identity \
+  --role-arn arn:aws:iam::ACCOUNT-ID:role/github-actions-role \
+  --role-session-name github-session \
+  --web-identity-token $GITHUB_TOKEN
+```
 
-### How it works
+### Security Best Practices
 
-The `setup-aws-sso.sh` script checks for `~/.sso-config`:
-
-- **If found** → Auto-configures profiles from the file (no prompts)
-- **If not found** → Falls back to interactive mode
-
-### Variable naming convention
-
-For a profile `dev`, provide:
-- `DEV_ACCOUNT_ID`
-- `DEV_ROLE_NAME`
-
-For a profile `prod`, provide:
-- `PROD_ACCOUNT_ID`
-- `PROD_ROLE_NAME`
-
-(Profiles are converted to UPPERCASE for environment variable lookups)
-
-### Security note
-
-Store `.sso-config` in a **private** dotfiles repository. It contains AWS account IDs and role names, but not credentials (those come from SSO login).
+- Never commit AWS credentials to version control
+- Use IAM Identity Center for human access when possible
+- Prefer time-limited session credentials over long-lived access keys
+- For automation, use IAM roles with trust policies

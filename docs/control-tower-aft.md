@@ -17,9 +17,9 @@ This repository now assumes **AWS Control Tower** is the authority for landing z
 
 ## Golden rules
 
-- Do not manage the same OU/account/SCP in both `terraform/org` and Control Tower.
-- Use `terraform/org` only for legacy or migration operations.
-- Treat Control Tower as source of truth for organization hierarchy.
+- Control Tower is the source of truth for organization hierarchy.
+- Account creation and lifecycle is managed through AFT account requests.
+- Per-account customization is handled by AFT customization pipelines.
 
 ## Recommended rollout sequence
 
@@ -28,13 +28,3 @@ This repository now assumes **AWS Control Tower** is the authority for landing z
 3. Deploy AFT according to AWS reference architecture.
 4. Move account creation requests into `terraform/aft/account-requests`.
 5. Keep account customizations in a dedicated AFT customization repo/pipeline.
-
-## Migration from legacy org Terraform
-
-If this repository previously created OUs/accounts with `terraform/org`:
-
-1. Freeze changes in `terraform/org`.
-2. Confirm the current hierarchy in AWS Organizations and Control Tower.
-3. Decide each existing account's target OU under Control Tower governance.
-4. Import or recreate account requests in AFT.
-5. Decommission `terraform/org` operations once migration is complete.

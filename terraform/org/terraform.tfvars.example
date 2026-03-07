@@ -1,9 +1,15 @@
 region = "ca-central-1"
 
+# Set to true only for a brand-new management account with no organization yet.
+create_organization = false
+
 default_tags = {
   managed_by = "terraform"
   workload   = "platform"
 }
+
+# Account emails are auto-generated as aws+<account>@<domain> when per-account email is not set.
+account_email_domain = "example.com"
 
 organizational_units = {
   security = {
@@ -11,7 +17,7 @@ organizational_units = {
   }
 
   shared = {
-    name = "SharedServices"
+    name = "Shared Services"
   }
 
   prod = {
@@ -30,7 +36,6 @@ organizational_units = {
 
 accounts = {
   log_archive = {
-    email         = "aws-log-archive@example.com"
     name          = "LogArchive"
     parent_ou_key = "security"
     tags = {
@@ -39,15 +44,61 @@ accounts = {
   }
 
   audit = {
-    email         = "aws-audit@example.com"
     name          = "Audit"
     parent_ou_key = "security"
   }
 
-  shared_services = {
-    email         = "aws-shared@example.com"
-    name          = "SharedServices"
+  # Sensitive service accounts - separate for security (defense-in-depth)
+  # All under "shared" OU for easy policy management
+  
+  networking = {
+    email_local_part = "networking"
+    name          = "Networking"
     parent_ou_key = "shared"
+    tags = {
+      account_type = "shared"
+      service      = "networking"
+    }
+  }
+
+  logging = {
+    email_local_part = "logging"
+    name          = "Logging"
+    parent_ou_key = "shared"
+    tags = {
+      account_type = "shared"
+      service      = "logging"
+    }
+  }
+
+  security_services = {
+    email_local_part = "security-services"
+    name          = "Security Services"
+    parent_ou_key = "shared"
+    tags = {
+      account_type = "shared"
+      service      = "security"
+    }
+  }
+
+#   containers = {
+#     name             = "Containers"
+#     email_local_part = "containers"
+#     parent_ou_key    = "shared"
+#     tags = {
+#       account_type = "shared"
+#       service      = "containers"
+#     }
+#   }
+
+  dns = {
+    email_local_part = "dns"
+    name          = "DNS"
+    parent_ou_key = "shared"
+    tags = {
+      account_type = "shared"
+      service      = "dns"
+    }
   }
 }
 

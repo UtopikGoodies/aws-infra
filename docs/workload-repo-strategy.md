@@ -71,13 +71,10 @@ Keep state keys organized by environment + region for clarity and safety.
 # Workload state (in shared platform S3 bucket)
 s3://all-terraform-state/acme-platform-api/prod/us-east-1/terraform.tfstate
 s3://all-terraform-state/acme-platform-api/staging/us-east-1/terraform.tfstate
-s3://all-terraform-state/acme-data-lake/prod/eu-west-1/terraform.tfstate
+s3://all-terraform-state/acme-data-lake/prod/ca-center-1/terraform.tfstate
 
 # Bootstrap state (management account)
 s3://all-terraform-state/bootstrap/terraform.tfstate
-
-# Org state (management account, legacy only)
-s3://all-terraform-state/org/terraform.tfstate
 ```
 
 **Backend config pattern** (`environments/prod/backend-config.hcl`):

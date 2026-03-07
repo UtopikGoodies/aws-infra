@@ -4,80 +4,62 @@ This document outlines what your AWS Organization should look like after fully i
 
 ## AWS Organization hierarchy
 
+This is the recommended structure as configured in `terraform.tfvars.example`:
+
 ```
 AWS Organization (root)
 ├── Root (management account)
-│   ├── Account: Management-Account (ID: 111111111111)
+│   ├── Account: Management Account
 │   │   ├── Role: OrganizationAccountAccessRole
 │   │   ├── Service: Control Tower
 │   │   ├── Service: IAM Identity Center
 │   │   ├── Service: AFT (Account Factory for Terraform)
-│   │   └── S3: Terraform state bucket (all-terraform-state)
+│   │   └── S3: Terraform state bucket (tf-state-ACCOUNT-ID-xxxxxxxx)
 │   │
 │   └── OUs (Organizational Units)
 │       ├── Security
-│       │   ├── Account: Audit (ID: 222222222222)
-│       │   │   └── Role: prod-admin (via Identity Center)
+│       │   ├── Account: Audit
+│       │   │   ├── Service: AWS Config aggregator
+│       │   │   ├── Service: Guard Duty (delegated)
+│       │   │   └── Role: security-audit (via Identity Center)
 │       │   │
-│       │   └── Account: LogArchive (ID: 333333333333)
+│       │   └── Account: LogArchive
+│       │       ├── Service: CloudTrail central logging
+│       │       ├── Service: Control Tower (delegated)
 │       │       └── Role: prod-admin (via Identity Center)
 │       │
-│       ├── SharedServices / Shared
-│       │   ├── Account: SharedServices-Prod (ID: 444444444444)
+│       ├── Infrastructure
+│       │   ├── Account: SharedServices
 │       │   │   ├── VPC (central)
 │       │   │   ├── DNS (Route53)
 │       │   │   ├── Observability (CloudWatch central)
 │       │   │   └── Role: platform-admin (via Identity Center)
 │       │   │
-│       │   └── Account: AFT-Tooling (ID: 555555555555)
+│       │   ├── Account: Network
+│       │   │   ├── VPC infrastructure
+│       │   │   ├── Network connectivity hub
+│       │   │   └── Role: platform-admin (via Identity Center)
+│       │   │
+│       │   └── Account: AFT-Tooling
 │       │       ├── Service: AFT deployment
-│       │       ├── CodePipeline (AFT pipelines)
+│       │       ├── Service: CodePipeline (AFT pipelines)
 │       │       └── Role: platform-admin (via Identity Center)
 │       │
-│       ├── Production
-│       │   ├── Account: acme-platform-api-prod (ID: 666666666666)
-│       │   │   ├── Workload: Platform API
-│       │   │   ├── Permission Set: prod-admin (platform-api-team)
-│       │   │   ├── Permission Set: prod-read (prod-support)
-│       │   │   └── OIDC: GitHub (acme-platform-api repo)
-│       │   │
-│       │   ├── Account: acme-data-lake-prod (ID: 777777777777)
-│       │   │   ├── Workload: Data Pipeline
-│       │   │   ├── Permission Set: prod-admin (data-team)
-│       │   │   ├── Permission Set: prod-read (analytics-team)
-│       │   │   └── OIDC: GitHub (acme-data-lake repo)
-│       │   │
-│       │   └── Account: acme-ml-platform-prod (ID: 888888888888)
-│       │       ├── Workload: ML Platform
-│       │       ├── Permission Set: prod-admin (ml-team)
-│       │       └── OIDC: GitHub (acme-ml-platform repo)
-│       │
-│       └── NonProduction
-│           ├── Staging
-│           │   ├── Account: acme-platform-api-staging (ID: 999999999991)
-│           │   │   ├── Permission Set: dev-engineer (acme-platform-api-team)
-│           │   │   └── OIDC: GitHub
-│           │   │
-│           │   ├── Account: acme-data-lake-staging (ID: 999999999992)
-│           │   │   ├── Permission Set: dev-engineer (data-team)
-│           │   │   └── OIDC: GitHub
-│           │   │
-│           │   └── Account: acme-ml-platform-staging (ID: 999999999993)
-│           │       ├── Permission Set: dev-engineer (ml-team)
-│           │       └── OIDC: GitHub
+│       └── Workloads
+│           ├── Production
+│           │   └── [Workload accounts created via AFT]
+│           │       ├── Permission Set: prod-admin (team owning account)
+│           │       ├── Permission Set: prod-read (support/auditors)
+│           │       └── OIDC: GitHub (workload repo)
 │           │
-│           └── Development
-│               ├── Account: acme-platform-api-dev (ID: 999999999994)
-│               │   └── Permission Set: dev-engineer (acme-platform-api-team)
+│           └── Non-Production
+│               ├── Staging
+│               │   └── [Pre-prod workload accounts]
+│               │       └── Permission Set: dev-engineer (development team)
 │               │
-│               ├── Account: acme-data-lake-dev (ID: 999999999995)
-│               │   └── Permission Set: dev-engineer (data-team)
-│               │
-│               ├── Account: acme-ml-platform-dev (ID: 999999999996)
-│               │   └── Permission Set: dev-engineer (ml-team)
-│               │
-│               └── Account: sandbox (ID: 999999999997)
-│                   └── Permission Set: dev-engineer (all developers)
+│               └── Sandbox
+│                   └── [Development/experimentation account]
+│                       └── Permission Set: dev-engineer (all developers)
 ```
 
 ## Permission Sets (Identity Center)
@@ -200,9 +182,9 @@ s3://all-terraform-state/
 │   └── prod/us-east-1/terraform.tfstate
 │
 ├── acme-data-lake/
-│   ├── dev/eu-west-1/terraform.tfstate
-│   ├── staging/eu-west-1/terraform.tfstate
-│   └── prod/eu-west-1/terraform.tfstate
+│   ├── dev/ca-center-1/terraform.tfstate
+│   ├── staging/ca-center-1/terraform.tfstate
+│   └── prod/ca-center-1/terraform.tfstate
 │
 ├── acme-ml-platform/
 │   ├── dev/us-west-2/terraform.tfstate
@@ -211,7 +193,7 @@ s3://all-terraform-state/
 │
 └── acme-shared-services/
     ├── prod/us-east-1/terraform.tfstate
-    └── prod/eu-west-1/terraform.tfstate
+    └── prod/ca-center-1/terraform.tfstate
 ```
 
 ## Team responsibilities matrix
