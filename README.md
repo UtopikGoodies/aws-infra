@@ -4,7 +4,7 @@ Complete AWS multi-account infrastructure using Control Tower, Organizations, an
 
 ## Prerequisites
 
-**NEW TO AWS?** Start here: [Complete Prerequisites Guide](docs/PREREQUISITES.md)
+**NEW TO AWS?** Start here: [Complete Prerequisites Guide](docs/prerequisites.md)
 
 This guide covers the 4 things you MUST do manually:
 - Creating an AWS account
@@ -23,11 +23,11 @@ This guide covers the 4 things you MUST do manually:
 
 ### 1. Complete Prerequisites
 
-See [Complete Prerequisites Guide](docs/PREREQUISITES.md) for detailed step-by-step instructions.
+See [Complete Prerequisites Guide](docs/prerequisites.md) for detailed step-by-step instructions.
 
 Required:
 - ✅ AWS account created
-- ✅ IAM `terraform-user` created with Access Keys
+- ✅ IAM `terraform-admin` created with Access Keys
 - ✅ AWS CLI installed and credentials configured (`aws configure`)
 - ✅ Terraform installed (v1.0+)
 
@@ -308,9 +308,9 @@ If it already exists, you can:
 
 ### Permission errors
 
-Ensure your `terraform-user` has `AdministratorAccess` policy:
+Ensure your `terraform-admin` has `AdministratorAccess` policy:
 ```bash
-aws iam list-attached-user-policies --user-name terraform-user
+aws iam list-attached-user-policies --user-name terraform-admin
 ```
 
 If not attached, go to IAM Console and add it.

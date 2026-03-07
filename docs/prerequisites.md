@@ -5,10 +5,12 @@ This guide walks you through all the steps required **before** you can run the T
 **TL;DR - What you MUST do manually:**
 1. Create an AWS account
 2. Create an IAM user with credentials for Terraform
-3. Install Terraform and AWS CLI locally
-4. Configure AWS CLI with your credentials
+3. (Optional if using Codespaces) Install Terraform and AWS CLI locally
+4. (Optional if using Codespaces) Configure AWS CLI with your credentials
 
 **Everything else is automated by Terraform!** (Including AWS Organizations and Control Tower)
+
+**Using GitHub Codespaces?** You can skip steps 3-4 if you're using [UtopikGoodies/dotfiles](https://github.com/UtopikGoodies/dotfiles) with GitHub Codespaces secrets (see Phase 4).
 
 ---
 
@@ -116,26 +118,114 @@ You don't need to do anything manually for any of these!
 
 ## Phase 4: Configure AWS Credentials
 
-### Step 4.1: Configure AWS CLI
+### Step 4.1: Using GitHub Codespaces with Automated Setup (Recommended)
 
-Run this command:
+If you're using GitHub Codespaces with [UtopikGoodies/dotfiles](https://github.com/UtopikGoodies/dotfiles), AWS CLI is automatically configured with your credentials injected into the container via GitHub Codespaces secrets.
 
-```bash
-aws configure
+**Option A: Add AWS Credentials as Codespaces Secret (Automated)**
+
+Create a GitHub Codespaces secret with your AWS credentials:
+
+1. Go to your GitHub Settings → **Codespaces** → **Secrets** (or https://github.com/settings/codespaces)
+2. Click **New secret**
+3. Name: `aws_credentials_config`
+4. Value: Paste the JSON configuration below (updated with YOUR values):
+
+```json
+[
+  {
+    "name": "YourOrganizationName",
+    "profile_prefix": "org",
+    "prefix_profiles": true,
+    "sso_region": "ca-central-1",
+    "accounts": [
+      {
+        "id": "123456789012",
+        "type": "access_key",
+        "profile": "tfadmin",
+        "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+        "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      }
+    ]
+  }
+]
 ```
 
-When prompted, enter:
-- **AWS Access Key ID**: [paste from Phase 2, Step 2.2]
-- **AWS Secret Access Key**: [paste from Phase 2, Step 2.2]
-- **Default region name**: [choose one, e.g., `ca-central-1` or `us-east-1`]
-- **Default output format**: `json`
+**Replace with your actual values:**
+- `"YourOrganizationName"` → Your organization/company name
+- `"id": "123456789012"` → Your AWS Management Account ID
+- `"access_key_id"` → Access Key ID from Phase 2, Step 2.2
+- `"secret_access_key"` → Secret Access Key from Phase 2, Step 2.2
 
-This creates `~/.aws/credentials` with your credentials.
+5. Click **Add secret**
+6. **Important**: Make sure this secret is available to your repository:
+   - Go to your repo Settings → **Secrets and variables** → **Codespaces**
+   - Verify the secret appears in "Repository secrets"
 
-### Step 4.2: Verify Credentials
+When you open Codespaces next time, the dotfiles will automatically:
+- Create AWS profile `org-tfadmin` (based on prefix)
+- Inject credentials into `~/.aws/credentials`
+- Configure the profile for you
+
+**No manual `aws configure` needed!**
+
+### Step 4.2: Check Available Profiles
+
+List all configured AWS profiles:
 
 ```bash
+aws configure list-profiles
+```
+
+You should see:
+- `org-tfadmin` (or similar, based on your secret configuration)
+- `default` (if set)
+- others you've configured
+
+### Step 4.3: Using AWS Profiles
+
+When you have multiple AWS profiles, specify which one to use:
+
+**Option A: Set default profile (recommended)**
+
+Set the `AWS_PROFILE` environment variable:
+
+```bash
+export AWS_PROFILE=org-tfadmin
+```
+
+To make it permanent, add to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
+```bash
+export AWS_PROFILE=org-tfadmin
+```
+
+**Option B: Use a specific profile for a single command**
+
+```bash
+aws sts get-caller-identity --profile org-tfadmin
+```
+
+**Option C: Set default profile in AWS config**
+
+Edit `~/.aws/config` and set:
+```ini
+[default]
+region = ca-central-1
+output = json
+```
+
+Then run `aws` commands without `--profile` flag.
+
+### Step 4.4: Verify Credentials
+
+Test with your chosen profile:
+
+```bash
+# If you set a default profile
 aws sts get-caller-identity
+
+# Or specify a profile
+aws sts get-caller-identity --profile org-tfadmin
 ```
 
 You should see output like:
@@ -147,7 +237,30 @@ You should see output like:
 }
 ```
 
-✅ If you see this, credentials are configured correctly!
+✅ If you see this, the profile is working correctly!
+
+### Step 4.5: Manual Configuration (if NOT using Codespaces secrets)
+
+If you're **NOT** using GitHub Codespaces with automated secrets, manually configure AWS CLI:
+
+Run this command:
+
+```bash
+aws configure --profile org-tfadmin
+```
+
+When prompted, enter:
+- **AWS Access Key ID**: [paste from Phase 2, Step 2.2]
+- **AWS Secret Access Key**: [paste from Phase 2, Step 2.2]
+- **Default region name**: [choose one, e.g., `ca-central-1` or `us-east-1`]
+- **Default output format**: `json`
+
+This creates a profile named `org-tfadmin` in `~/.aws/credentials`.
+
+Then set it as default:
+```bash
+export AWS_PROFILE=org-tfadmin
+```
 
 ---
 
@@ -211,10 +324,11 @@ Verify you have completed:
 
 - ✅ AWS account created
 - ✅ IAM `terraform-admin` created with Access Keys
-- ✅ AWS CLI installed and credentials configured
+- ✅ AWS CLI installed with profile configured
 - ✅ Terraform installed (version 1.0+)
 - ✅ `aws sts get-caller-identity` returns your terraform-admin
 - ✅ `terraform.tfvars` created with region and email domain
+- ✅ Default AWS profile set (via `export AWS_PROFILE=org-tfadmin` or in `~/.aws/config`)
 
 Then deploy:
 
@@ -224,10 +338,27 @@ terraform init
 terraform plan
 ```
 
+**If you're using a non-default profile**, set it before running Terraform:
+
+```bash
+export AWS_PROFILE=org-tfadmin
+terraform init
+terraform plan
+```
+
+Or pass it to each command:
+
+```bash
+AWS_PROFILE=org-tfadmin terraform init
+AWS_PROFILE=org-tfadmin terraform plan
+```
+
 This will show you what Terraform will create. If it looks good:
 
 ```bash
 terraform apply
+# or with profile:
+AWS_PROFILE=org-tfadmin terraform apply
 ```
 
 **⏱️ Deployment time:** ~45-60 minutes (includes Control Tower deployment, which is automated)
@@ -251,25 +382,59 @@ which terraform
 If empty, reinstall Terraform for your OS (see Phase 3.2)
 
 ### "UnauthorizedOperation" error from Terraform
-The `terraform-user` doesn't have `AdministratorAccess` policy:
+The `terraform-admin` doesn't have `AdministratorAccess` policy:
 1. Go to IAM Console
-2. Select the `terraform-user`
+2. Select the `terraform-admin`
 3. Click **Add permissions** → **Attach policies directly**
 4. Search for `AdministratorAccess` and select it
 5. Click **Attach policies**
 6. Wait 2-3 minutes, then try again
 
 ### "credentials not found" error
-AWS credentials not configured:
-```bash
-aws configure
-```
-Enter your Access Key ID and Secret Access Key from Phase 2, Step 2.2
+AWS credentials or profile not configured:
 
-### "InvalidUserID.NotFound" when creating terraform-user
+Check available profiles:
+```bash
+aws configure list-profiles
+```
+
+Set a default profile:
+```bash
+export AWS_PROFILE=org-tfadmin
+```
+
+Or verify your profile exists:
+```bash
+aws sts get-caller-identity --profile org-tfadmin
+```
+
+### "InvalidUserID.NotFound" when creating terraform-admin
 The IAM user already exists. Either:
 - Use an existing user that has `AdministratorAccess` policy, or
 - Choose a different username
+
+### "AWS profile not found" error
+Terraform or AWS CLI can't find your profile:
+
+1. Check available profiles:
+   ```bash
+   aws configure list-profiles
+   ```
+
+2. Set the default profile:
+   ```bash
+   export AWS_PROFILE=org-tfadmin
+   ```
+
+3. Verify the profile works:
+   ```bash
+   aws sts get-caller-identity --profile org-tfadmin
+   ```
+
+4. For Terraform, either set `AWS_PROFILE` environment variable or use the profile in your Terraform command:
+   ```bash
+   AWS_PROFILE=org-tfadmin terraform init
+   ```
 
 ---
 
@@ -282,7 +447,7 @@ The IAM user already exists. Either:
 
 2. **Use least privilege later**
    - We gave `AdministratorAccess` for initial setup
-   - After initial deployment, restrict the `terraform-user` policy to only needed permissions
+   - After initial deployment, restrict the `terraform-admin` policy to only needed permissions
 
 3. **Enable MFA on root account**
    - Go to IAM → Security credentials
