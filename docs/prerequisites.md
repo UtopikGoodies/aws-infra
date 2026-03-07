@@ -132,23 +132,19 @@ Create a GitHub Codespaces secret with your AWS credentials:
 4. Value: Paste the JSON configuration below (updated with YOUR values):
 
 ```json
-[
-  {
-    "name": "YourOrganizationName",
-    "profile_prefix": "org",
-    "prefix_profiles": true,
-    "sso_region": "ca-central-1",
-    "accounts": [
-      {
-        "id": "123456789012",
-        "type": "access_key",
-        "profile": "tfadmin",
-        "access_key_id": "AKIAIOSFODNN7EXAMPLE",
-        "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-      }
-    ]
-  }
-]
+{
+   "name": "YourOrganizationName",
+   "sso_region": "ca-central-1",
+   "accounts": [
+   {
+      "id": "123456789012",
+      "type": "access_key",
+      "profile": "tfadmin",
+      "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+      "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+   }
+   ]
+}
 ```
 
 **Replace with your actual values:**
@@ -163,7 +159,7 @@ Create a GitHub Codespaces secret with your AWS credentials:
    - Verify the secret appears in "Repository secrets"
 
 When you open Codespaces next time, the dotfiles will automatically:
-- Create AWS profile `org-tfadmin` (based on prefix)
+- Create AWS profile `tfadmin` (based on prefix)
 - Inject credentials into `~/.aws/credentials`
 - Configure the profile for you
 
@@ -178,7 +174,7 @@ aws configure list-profiles
 ```
 
 You should see:
-- `org-tfadmin` (or similar, based on your secret configuration)
+- `tfadmin` (or similar, based on your secret configuration)
 - `default` (if set)
 - others you've configured
 
@@ -191,18 +187,18 @@ When you have multiple AWS profiles, specify which one to use:
 Set the `AWS_PROFILE` environment variable:
 
 ```bash
-export AWS_PROFILE=org-tfadmin
+export AWS_PROFILE=tfadmin
 ```
 
 To make it permanent, add to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
 ```bash
-export AWS_PROFILE=org-tfadmin
+export AWS_PROFILE=tfadmin
 ```
 
 **Option B: Use a specific profile for a single command**
 
 ```bash
-aws sts get-caller-identity --profile org-tfadmin
+aws sts get-caller-identity --profile tfadmin
 ```
 
 **Option C: Set default profile in AWS config**
@@ -225,7 +221,7 @@ Test with your chosen profile:
 aws sts get-caller-identity
 
 # Or specify a profile
-aws sts get-caller-identity --profile org-tfadmin
+aws sts get-caller-identity --profile tfadmin
 ```
 
 You should see output like:
@@ -246,7 +242,7 @@ If you're **NOT** using GitHub Codespaces with automated secrets, manually confi
 Run this command:
 
 ```bash
-aws configure --profile org-tfadmin
+aws configure --profile tfadmin
 ```
 
 When prompted, enter:
@@ -255,11 +251,11 @@ When prompted, enter:
 - **Default region name**: [choose one, e.g., `ca-central-1` or `us-east-1`]
 - **Default output format**: `json`
 
-This creates a profile named `org-tfadmin` in `~/.aws/credentials`.
+This creates a profile named `tfadmin` in `~/.aws/credentials`.
 
 Then set it as default:
 ```bash
-export AWS_PROFILE=org-tfadmin
+export AWS_PROFILE=tfadmin
 ```
 
 ---
@@ -328,7 +324,7 @@ Verify you have completed:
 - ✅ Terraform installed (version 1.0+)
 - ✅ `aws sts get-caller-identity` returns your terraform-admin
 - ✅ `terraform.tfvars` created with region and email domain
-- ✅ Default AWS profile set (via `export AWS_PROFILE=org-tfadmin` or in `~/.aws/config`)
+- ✅ Default AWS profile set (via `export AWS_PROFILE=tfadmin` or in `~/.aws/config`)
 
 Then deploy:
 
@@ -341,7 +337,7 @@ terraform plan
 **If you're using a non-default profile**, set it before running Terraform:
 
 ```bash
-export AWS_PROFILE=org-tfadmin
+export AWS_PROFILE=tfadmin
 terraform init
 terraform plan
 ```
@@ -349,8 +345,8 @@ terraform plan
 Or pass it to each command:
 
 ```bash
-AWS_PROFILE=org-tfadmin terraform init
-AWS_PROFILE=org-tfadmin terraform plan
+AWS_PROFILE=tfadmin terraform init
+AWS_PROFILE=tfadmin terraform plan
 ```
 
 This will show you what Terraform will create. If it looks good:
@@ -358,7 +354,7 @@ This will show you what Terraform will create. If it looks good:
 ```bash
 terraform apply
 # or with profile:
-AWS_PROFILE=org-tfadmin terraform apply
+AWS_PROFILE=tfadmin terraform apply
 ```
 
 **⏱️ Deployment time:** ~45-60 minutes (includes Control Tower deployment, which is automated)
@@ -400,12 +396,12 @@ aws configure list-profiles
 
 Set a default profile:
 ```bash
-export AWS_PROFILE=org-tfadmin
+export AWS_PROFILE=tfadmin
 ```
 
 Or verify your profile exists:
 ```bash
-aws sts get-caller-identity --profile org-tfadmin
+aws sts get-caller-identity --profile tfadmin
 ```
 
 ### "InvalidUserID.NotFound" when creating terraform-admin
@@ -423,17 +419,17 @@ Terraform or AWS CLI can't find your profile:
 
 2. Set the default profile:
    ```bash
-   export AWS_PROFILE=org-tfadmin
+   export AWS_PROFILE=tfadmin
    ```
 
 3. Verify the profile works:
    ```bash
-   aws sts get-caller-identity --profile org-tfadmin
+   aws sts get-caller-identity --profile tfadmin
    ```
 
 4. For Terraform, either set `AWS_PROFILE` environment variable or use the profile in your Terraform command:
    ```bash
-   AWS_PROFILE=org-tfadmin terraform init
+   AWS_PROFILE=tfadmin terraform init
    ```
 
 ---
